@@ -168,10 +168,7 @@ func (c *conn) readMessage() (m *Message, err error) {
 	} else {
 		m, err = ReadMessage(c.buf.Reader, c.dictionary())
 	}
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return m, err
 }
 
 // Serve a new connection.
@@ -670,8 +667,10 @@ func ListenAndServe(addr string, handler Handler, dp *dict.Parser) error {
 // ListenAndServeTLS listens on the network address srv.Addr and
 // then calls Serve to handle requests on incoming TLS connections.
 //
-// Filenames containing a certificate and matching private key for
-// the server must be provided. If the certificate is signed by a
+// Either filenames containing a certificate and matching private key
+// for the server must be provided either the callback
+// srv.TLSConfig.GetCertificate should be filled in advance.
+// If the certificate is signed by a
 // certificate authority, the certFile should be the concatenation
 // of the server's certificate followed by the CA's certificate.
 //
@@ -693,11 +692,13 @@ func (srv *Server) ListenAndServeTLS(certFile, keyFile string) error {
 		config = TLSConfigClone(srv.TLSConfig)
 	}
 	var err error
-	config.Certificates = make([]tls.Certificate, 1)
-	config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return err
-	}
+	if config.GetCertificate == nil {
+		config.Certificates = make([]tls.Certificate, 1)
+		config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return err
+		}
+	}	
 	conn, err := Listen(network, addr)
 	if err != nil {
 		return err
