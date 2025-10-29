@@ -90,7 +90,7 @@ func readIMSIsFromCSV(filename string) ([]string, error) {
 		if len(record) < 2 {
 			return nil, fmt.Errorf("row %d has insufficient columns", i+2)
 		}
-		imsis = append(imsis, record[1]) // IMSI is in column 1
+		imsis = append(imsis, record[1]) // IMSI is in the second column (index 1)
 	}
 
 	return imsis, nil
