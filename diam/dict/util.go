@@ -26,8 +26,8 @@ var parentAppIds map[uint32]uint32 = map[uint32]uint32{
 // Apps return a list of all applications loaded in the Parser object.
 // Apps must never be called concurrently with LoadFile or Load.
 func (p *Parser) Apps() []*App {
-	//p.mu.Lock()
-	//defer p.mu.Unlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
 	var apps []*App
 	for _, f := range p.file {
 		for _, app := range f.App {
@@ -69,7 +69,7 @@ func MakeUnknownAVP(appid, code, vendorID uint32) *AVP {
 		},
 		App: &App{
 			ID:     appid,
-			Vendor: []*Vendor{&Vendor{ID: vendorID}},
+			Vendor: []*Vendor{{ID: vendorID}},
 		},
 	}
 }
@@ -82,8 +82,8 @@ func MakeUnknownAVP(appid, code, vendorID uint32) *AVP {
 //
 // FindAVPWithVendor must never be called concurrently with LoadFile or Load.
 func (p *Parser) FindAVPWithVendor(appid uint32, code interface{}, vendorID uint32) (*AVP, error) {
-	//p.mu.Lock()
-	//defer p.mu.Unlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
 	var (
 		avp *AVP
 		ok  bool
@@ -124,12 +124,7 @@ retry:
 		goto retry
 	} else {
 		if codeU32, isUint32 := code.(uint32); isUint32 {
-			avp, err = p.FindAVP(origAppID, codeU32)
-			if err != nil {
-				return MakeUnknownAVP(origAppID, codeU32, vendorID), err
-			}
-
-			return avp, nil
+			return MakeUnknownAVP(origAppID, codeU32, vendorID), err
 		}
 	}
 
@@ -155,8 +150,8 @@ func (p *Parser) FindAVP(appid uint32, code interface{}) (*AVP, error) {
 //
 // ScanAVP must never be called concurrently with LoadFile or Load.
 func (p *Parser) ScanAVP(code interface{}) (*AVP, error) {
-	//p.mu.Lock()
-	//defer p.mu.Unlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
 	switch code.(type) {
 	case string:
 		for idx, avp := range p.avpname {
@@ -187,8 +182,8 @@ func (p *Parser) ScanAVP(code interface{}) (*AVP, error) {
 //
 // FindCommand must never be called concurrently with LoadFile or Load.
 func (p *Parser) FindCommand(appid, code uint32) (*Command, error) {
-	//p.mu.Lock()
-	//defer p.mu.Unlock()
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
 	if cmd, ok := p.command[codeIdx{appid, code, UndefinedVendorID}]; ok {
 		return cmd, nil
 	} else if cmd, ok = p.command[codeIdx{0, code, UndefinedVendorID}]; ok {
