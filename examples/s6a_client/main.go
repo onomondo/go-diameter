@@ -32,12 +32,14 @@ package main
 */
 
 import (
+	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -58,7 +60,7 @@ var (
 	watchdog       = flag.Uint("watchdog", 5, "Diameter watchdog interval in seconds. 0 to disable watchdog.")
 	vendorID       = flag.Uint("vendor", 10415, "Vendor ID")
 	appID          = flag.Uint("app", 16777251, "AuthApplicationID")
-	imsiBase       = flag.String("imsi_base", "234500021000000", "Client (UE) IMSI base")
+	csvFile        = flag.String("csv", "/go/go-diameter/seed-data.csv", "Path to seed data CSV file")
 	plmnID         = flag.String("plmnid", "\x00\xF1\x10", "Client (UE) PLMN ID")
 	vectors        = flag.Uint("vectors", 3, "Number Of Requested Auth Vectors")
 	requestDelayMs = flag.Float64("request_delay_ms", 1_000, "Sleep between requests - default 1 second")
@@ -66,11 +68,49 @@ var (
 	r              = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
+func readIMSIsFromCSV(filename string) ([]string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records) < 2 {
+		return nil, fmt.Errorf("CSV file must have header and at least one data row")
+	}
+
+	var imsis []string
+	for i, record := range records[1:] { // Skip header
+		if len(record) < 2 {
+			return nil, fmt.Errorf("row %d has insufficient columns", i+2)
+		}
+		imsis = append(imsis, record[1]) // IMSI is in the second column (index 1)
+	}
+
+	return imsis, nil
+}
+
 func main() {
 	flag.Parse()
 	if len(*addr) == 0 {
 		flag.Usage()
 	}
+
+	// Load IMSIs from CSV
+	imsis, err := readIMSIsFromCSV(*csvFile)
+	if err != nil {
+		log.Fatalf("Failed to read IMSIs from CSV: %v", err)
+	}
+	if len(imsis) == 0 {
+		log.Fatal("No IMSIs found in CSV file")
+	}
+	log.Printf("Loaded %d IMSIs from %s", len(imsis), *csvFile)
 
 	cfg := &sm.Settings{
 		OriginHost:       datatype.DiameterIdentity(*host),
@@ -123,7 +163,6 @@ func main() {
 	// Print error reports.
 	go printErrors(mux.ErrorReports())
 
-	const MAX_IDX = 9999999
 	idx := 0
 
 	conn, err := cli.DialNetwork(*networkType, *addr)
@@ -132,11 +171,8 @@ func main() {
 	}
 
 	for {
-		idx++
-		if idx > MAX_IDX {
-			idx = 0
-		}
-		imsi := fmt.Sprintf("%s%06d", *imsiBase, idx)
+		imsi := imsis[idx]
+		idx = (idx + 1) % len(imsis)
 
 		err = sendAIR(conn, cfg, imsi)
 		if err != nil {
